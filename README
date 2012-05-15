@@ -1,3 +1,6 @@
 Voting Program for PHS. UI in beta, collection program in dev.  (the vote program creates file in the userprofile (e.g., C:\Users\%USERNAME%\vote.dat on windows nt))
 use vote.py to run
 must be running python 3.2.2 or higher and have tix and ttk extensions installed
+
+if a error occurs while reading parameters, you likely need to create a parameters file!
+use testparams.py to create a file and then place it in the directory specified by parameterpath in vote.py

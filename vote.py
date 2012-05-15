@@ -7,6 +7,11 @@ import tkinter.tix as tk
 
 import os, sys, time, pickle
 
+class Struct(object):
+    def __init__(self, dictionary):
+        "makes dictionary members instance fields"
+        self.__dict__.update(dictionary)
+
 def hide_file(path):
     "makes a file superficially more difficult to mess with"
     if os.name == 'nt':#windows
@@ -16,20 +21,32 @@ def show_file(path):
     if os.name == 'nt':#windows
         os.system('ATTRIB -R -S -H \"'+path+'\"')
 
+def safe_eval(path):
+    return eval(path, {'__builtins__': None}, {'environ': os.environ})
+
+
+parameterpath = os.path.join(".", "paramtest.dat")
+
 os.chdir("C:")
-votefilepath = os.path.join(os.environ["USERPROFILE"],"vote.dat")
-requiredChoices=3
-categoriesPath="categoriestest.dat"#just for now
-categories = OrderedDict()
-#create a temporary root window for any dialogs that may pop up
+
 app = tk.Tk()
 app.iconify()#hide it, shouldn't be needed
 
+#fetch paramaters
+#
+# votefilepath:		name of the file to save to
+# requiredChoices:	number of candidates to select
+# categories:		categories for voting
+# hideVoteFile: 	True or False whether to superficially hide the vote file
+# allowRunning:		whether or not to let the user run the program in the first place
+# overwriteVote:        allows the user to overwrite the previous vote
+#
+
 try:
-    with open(categoriesPath, 'rb') as f:
+    with open(parameterpath, 'rb') as f:
         for i in range(3):#3 tries
             try:
-                categories = pickle.load(f)
+                parameters = pickle.load(f)
                 break
             except (pickle.PickleError, IOError):
                 print("error retrieving voting information...",
@@ -44,23 +61,45 @@ except IOError:
     app.destroy()
     sys.exit(1)
 
-if len(categories) == 0:
-    #for testing purposes
-    categories['test1'] = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
-    categories['test2'] = ("A","B","C","D","E","F","G","H","I","J","K","L","M","N","O")
+#check parameters
+for p in ("votefilepath", "requiredChoices", "categories", "hideVoteFile",
+          "allowRunning"):
+    if p not in parameters:
+        print("could not find {0}".format(p), file=sys.stderr)
+        tkmb.showerror("Parameter Error", "Downloaded invalid parameters!")
+        app.destroy()
+        sys.exit(1)
 
-#get rid of the temporary root window and make the voting GUI
-app.destroy()
-app = VotingApp(categories)
+p = Struct(parameters)#allow for easier access
+
+#evaluate the vote file path
+parts = (safe_eval(i) for i in p.votefilepath)
+p.votefilepath = os.path.join(*parts)
+del parts
 
 
-if os.path.exists(votefilepath):#check on network too to prevent people from just deleting files
-    tkmb.showerror("Vote already exists",
-                   "A vote has already been submitted by this account!")
+if not p.allowRunning:
+    tkmb.showerror("Error", "Voting not allowed at this time!")
     app.destroy()
     sys.exit(1)
 
-app.mainloop()
+if len(p.categories) == 0:
+    tkmb.showerror("Parameter Error", "Downloaded invalid parameters!")
+    app.destroy()
+    sys.exit(1)
+
+#get rid of the temporary root window and make the voting GUI
+app.destroy()
+app = VotingApp(p.categories, p.requiredChoices)
+
+if not p.overwriteVote:
+    if os.path.exists(p.votefilepath):#check on network too to prevent people from just deleting files
+        tkmb.showerror("Vote already exists",
+                       "A vote has already been submitted by this account!")
+        app.destroy()
+        sys.exit(1)
+
+app.mainloop()#destroys itself automatically
 
 if len(app.votes) == 0:
     sys.exit(0)
@@ -68,8 +107,15 @@ if len(app.votes) == 0:
 root = tk.Tk()
 root.iconify()
 
+if not p.overwriteVote:
+    if os.path.exists(p.votefilepath):#check on network too to prevent people from just deleting files
+        tkmb.showerror("Vote already exists",
+                       "A vote has already been submitted by this account!")
+        app.destroy()
+        sys.exit(1)
+
 try:
-    with open(votefilepath, 'wb') as f:
+    with open(p.votefilepath, 'wb') as f:
         for i in range(3):#3 tries
             try:
                 pickle.dump(app.votes, f, pickle.HIGHEST_PROTOCOL)
@@ -86,13 +132,8 @@ except:
     app.destroy()
     sys.exit(1)
 
-#hide_file(votefilepath)#don't do this for testing purposes
-tkmb.showinfo("Success!", "Vote written Successfully")
+if p.hideVoteFile:
+    hide_file(votefilepath)#don't do this for testing purposes
+tkmb.showinfo("Success!", "Vote Written Successfully")
 root.destroy()
 sys.exit(0)
-
-
-
-
-
-
