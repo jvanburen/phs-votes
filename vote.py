@@ -27,7 +27,8 @@ def safe_eval(path):
 
 parameterpath = os.path.join(".", "paramtest.dat")
 
-os.chdir("C:")
+if os.name == 'nt':
+    os.chdir("C:")
 
 app = tk.Tk()
 app.iconify()#hide it, shouldn't be needed
